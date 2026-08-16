@@ -1,0 +1,218 @@
+name: Frontend CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - production
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/dlm-frontend
+
+jobs:
+  build-and-deploy:
+    name: Build, Publish and Deploy
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # 1. Checkout repository source code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Node.js 20
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # 3. Install exact dependencies
+      - name: Install Dependencies
+        run: npm ci
+
+      # 4. CI Validation & Type Check Build
+      - name: Compile & Build Frontend
+        run: npm run build
+
+      # 5. Set up QEMU for multi-arch OCI compatibility (AMD64 & ARM64/Ampere)
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # 6. Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 7. Authenticate to GitHub Container Registry
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 8. Build and push Multi-Arch Docker image to GHCR (Oracle Cloud ARM64 & AMD64)
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL || 'http://localhost:5000/api/v1' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      # 9. Deploy exact SHA image to Oracle Cloud VPS via SSH
+      - name: Deploy to Production VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: IMAGE_TAG,IMAGE_NAME
+          script: |
+            set -euo pipefail
+
+            echo "======================================"
+            echo "Starting Frontend Oracle Cloud Deployment"
+            echo "Target Image: ${IMAGE_NAME}:${IMAGE_TAG}"
+            echo "======================================"
+
+            # Authenticate to GHCR using production credentials
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io \
+              --username "${{ secrets.GHCR_USERNAME }}" \
+              --password-stdin
+
+            # Pull exact immutable SHA image
+            docker pull "${IMAGE_NAME}:${IMAGE_TAG}"
+
+            # Strict directory check (fails if /opt/dlm-frontend does not exist)
+            cd /opt/dlm-frontend
+
+            # Capture and store current running container image tag for rollback
+            PREV_IMAGE_TAG=$(docker inspect --format='{{.Config.Image}}' dlm-frontend-app 2>/devnull || echo "")
+            echo "${PREV_IMAGE_TAG}" > .prev_image_tag
+
+            # Deploy exact SHA image without rebuilding from source
+            IMAGE_TAG="${IMAGE_TAG}" \
+              docker compose up -d \
+              --no-build \
+              --force-recreate \
+              frontend
+
+            echo "Frontend container recreated successfully with image: ${IMAGE_TAG}."
+
+      # 10. Verify production deployment health check (Scoped ID: health_check)
+      - name: Production Health Check
+        id: health_check
+        env:
+          HEALTH_URL: ${{ secrets.PRODUCTION_HEALTH_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$HEALTH_URL" ]; then
+            echo "❌ PRODUCTION_HEALTH_URL secret is not configured."
+            exit 1
+          fi
+
+          echo "🔍 Polling production health endpoint: $HEALTH_URL"
+
+          for attempt in {1..12}; do
+            HTTP_STATUS=$(curl \
+              --silent \
+              --output /dev/null \
+              --write-out "%{http_code}" \
+              --connect-timeout 5 \
+              --max-time 10 \
+              "$HEALTH_URL" || echo "000")
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ Production frontend health check PASSED (HTTP 200 OK)."
+              exit 0
+            fi
+
+            echo "Attempt ${attempt}/12 failed. HTTP status: ${HTTP_STATUS}"
+            sleep 5
+          done
+
+          echo "❌ Production health check FAILED after 12 attempts."
+          exit 1
+
+      # 11. Automatic Rollback Step (Triggers ONLY if deployment succeeded but health check failed)
+      - name: Automatic Rollback on Health Check Failure
+        if: failure() && steps.health_check.outcome == 'failure'
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          HEALTH_URL: ${{ secrets.PRODUCTION_HEALTH_URL }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: IMAGE_NAME,HEALTH_URL
+          script: |
+            set -euo pipefail
+
+            echo "====================================================="
+            echo "⚠️ Health check failed! Initiating Automatic Rollback..."
+            echo "====================================================="
+
+            cd /opt/dlm-frontend
+
+            if [ ! -f .prev_image_tag ] || [ ! -s .prev_image_tag ]; then
+              echo "❌ CRITICAL: No previous image tag recorded. Cannot perform rollback."
+              exit 1
+            fi
+
+            PREV_TAG=$(cat .prev_image_tag)
+            echo "Restoring previous running image: ${PREV_TAG}"
+
+            if [[ "${PREV_TAG}" == *":"* ]]; then
+              EXACT_TAG="${PREV_TAG##*:}"
+              IMAGE_TAG="${EXACT_TAG}" docker compose up -d --no-build --force-recreate frontend
+            else
+              docker compose up -d --no-build --force-recreate frontend
+            fi
+
+            echo "Waiting 10 seconds for rollback container to stabilize..."
+            sleep 10
+
+            # Verify rollback health check
+            if [ -n "$HEALTH_URL" ]; then
+              ROLLBACK_STATUS=$(curl --silent --output /dev/null --write-out "%{http_code}" --connect-timeout 5 --max-time 10 "$HEALTH_URL" || echo "000")
+              if [ "$ROLLBACK_STATUS" = "200" ]; then
+                echo "✅ Rollback verified! Previous version is online and healthy (HTTP 200 OK)."
+              else
+                echo "❌ CRITICAL: Rollback performed, but restored version returned HTTP status ${ROLLBACK_STATUS}."
+              fi
+            fi
+
+            exit 1
+
+      # 12. Clean up unused images AFTER successful deployment only
+      - name: Prune Unused Docker Images
+        if: success()
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/dlm-frontend
+            docker image prune -af --filter "until=24h"
+            echo "Cleaned up old unused images."

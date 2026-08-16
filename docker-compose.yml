@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  frontend:
+    image: ghcr.io/${IMAGE_OWNER:-teja}/dlm-frontend:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dlm-frontend-app
+    restart: always
+    ports:
+      - "5001:5001"
+    environment:
+      - VITE_API_URL=http://localhost:5000/api/v1
