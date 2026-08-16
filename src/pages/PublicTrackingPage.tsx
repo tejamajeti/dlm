@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Order } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
+import { useToast } from '../context/ToastContext';
 import api from '../services/api';
 import { Search, Package, MapPin, Truck, CheckCircle, ShieldAlert } from 'lucide-react';
 
 export const PublicTrackingPage: React.FC = () => {
+  const toast = useToast();
   const [trackingNum, setTrackingNum] = useState('DLM-892401-US');
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
@@ -17,13 +19,15 @@ export const PublicTrackingPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // Calls Unauthenticated Public Endpoint (No JWT token needed!)
       const res: any = await api.get(`/public/tracking/${trackingNum.trim()}`);
       if (res.success && res.data) {
         setOrder(res.data);
+        toast.success(`Shipment found: ${res.data.tracking_number}`);
       }
     } catch (err: any) {
-      setError(err.message || 'Shipment not found. Please check tracking code.');
+      const errorMsg = err.message || 'Shipment not found. Please check tracking code.';
+      setError(errorMsg);
+      toast.error(errorMsg);
       setOrder(null);
     } finally {
       setLoading(false);
@@ -33,8 +37,8 @@ export const PublicTrackingPage: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-3xl font-extrabold text-white tracking-tight">Customer Shipment Tracking</h2>
-        <p className="text-sm text-slate-400">Public tracking lookup (Uses unauthenticated /api/v1/public/tracking endpoint)</p>
+        <h2 className="text-3xl font-extrabold text-white tracking-tight">Public Package Tracker</h2>
+        <p className="text-sm text-slate-400">Track shipment status and delivery progress in real time</p>
       </div>
 
       {/* Search Input Box */}

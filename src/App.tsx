@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import { ToastContainer } from './components/ToastContainer';
+import { AuthPage } from './pages/AuthPage';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
 import { OverviewDashboard } from './pages/OverviewDashboard';
@@ -14,10 +17,11 @@ import { Order } from './types';
 import api from './services/api';
 
 const AppContent: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [isSimulatorOpen, setIsSimulatorOpen] = useState<boolean>(false);
   const [ordersForSimulator, setOrdersForSimulator] = useState<Order[]>([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   const handleOpenSimulator = async () => {
     try {
@@ -29,10 +33,28 @@ const AppContent: React.FC = () => {
     setIsSimulatorOpen(true);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-cyan-400 font-bold text-sm">
+        Initializing DLM Platform...
+      </div>
+    );
+  }
+
+  // If user is not logged in, display Login & Signup Auth Screen
+  if (!user) {
+    return (
+      <>
+        <AuthPage />
+        <ToastContainer />
+      </>
+    );
+  }
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <OverviewDashboard onOpenSimulator={handleOpenSimulator} />;
+        return <OverviewDashboard onOpenSimulator={handleOpenSimulator} onNavigateTab={setActiveTab} />;
       case 'warehouses':
         return <WarehousesPage />;
       case 'orders':
@@ -46,17 +68,26 @@ const AppContent: React.FC = () => {
       case 'public-tracker':
         return <PublicTrackingPage />;
       default:
-        return <OverviewDashboard onOpenSimulator={handleOpenSimulator} />;
+        return <OverviewDashboard onOpenSimulator={handleOpenSimulator} onNavigateTab={setActiveTab} />;
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} userRole={user?.role} />
+    <div className="flex min-h-screen bg-slate-950 text-slate-100 relative">
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        userRole={user?.role}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <Navbar />
-        <main className="flex-1 p-6 overflow-y-auto">
+        <Navbar
+          isMobileMenuOpen={isMobileMenuOpen}
+          onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
+        />
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
           {renderTabContent()}
         </main>
       </div>
@@ -67,6 +98,8 @@ const AppContent: React.FC = () => {
         orders={ordersForSimulator}
         onOrderUpdated={() => {}}
       />
+
+      <ToastContainer />
     </div>
   );
 };
@@ -74,7 +107,9 @@ const AppContent: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </AuthProvider>
   );
 };

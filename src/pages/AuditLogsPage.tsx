@@ -21,8 +21,8 @@ export const AuditLogsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-extrabold text-white tracking-tight">Kafka Event Bus Audit Trail</h2>
-        <p className="text-xs text-slate-400 mt-1">Immutable event ledger recording all system state mutations</p>
+        <h2 className="text-2xl font-extrabold text-white tracking-tight">Live System Audit Trail</h2>
+        <p className="text-xs text-slate-400 mt-1">Immutable system activity log recording operational events and state mutations</p>
       </div>
 
       <div className="glass-panel rounded-2xl p-5 border border-slate-800">
@@ -30,7 +30,7 @@ export const AuditLogsPage: React.FC = () => {
           <table className="w-full text-left text-xs font-mono">
             <thead className="text-slate-400 uppercase bg-slate-900/80 border-b border-slate-800">
               <tr>
-                <th className="px-4 py-3">Event Topic / Action</th>
+                <th className="px-4 py-3">Event Action</th>
                 <th className="px-4 py-3">Actor ID</th>
                 <th className="px-4 py-3">Entity Type</th>
                 <th className="px-4 py-3">Timestamp</th>

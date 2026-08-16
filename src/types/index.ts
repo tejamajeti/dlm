@@ -54,6 +54,7 @@ export interface Order {
   destination_zip: string;
   status: OrderStatus;
   total_amount: number;
+  currency?: string;
   driver_id?: string;
   created_at: string;
   updated_at: string;
@@ -78,6 +79,7 @@ export interface InventoryItem {
   reorder_level: number;
   reorder_quantity: number;
   product?: Product;
+  warehouse?: Warehouse;
 }
 
 export interface DriverTelemetry {
