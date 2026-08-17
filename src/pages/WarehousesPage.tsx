@@ -3,6 +3,7 @@ import { Warehouse } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { NumericInput } from '../components/NumericInput';
+import { SEO } from '../components/SEO';
 import api from '../services/api';
 import {
   Building2,
@@ -182,6 +183,10 @@ export const WarehousesPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <SEO
+        title="Fulfillment Hubs & Facilities - DLM Platform"
+        description="Regional distribution centers, warehouse capacity, occupancy tracking & geographic placement."
+      />
       {/* Top Banner Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -455,3 +460,5 @@ export const WarehousesPage: React.FC = () => {
     </div>
   );
 };
+
+export default WarehousesPage;

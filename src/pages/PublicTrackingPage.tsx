@@ -4,6 +4,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
 import { Search, Package, MapPin, Truck, CheckCircle, ShieldAlert } from 'lucide-react';
+import { SEO } from '../components/SEO';
 
 export const PublicTrackingPage: React.FC = () => {
   const toast = useToast();
@@ -36,6 +37,10 @@ export const PublicTrackingPage: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      <SEO
+        title="Public Package Tracker - DLM Platform"
+        description="Track shipment status and delivery progress in real time."
+      />
       <div className="text-center space-y-2">
         <h2 className="text-3xl font-extrabold text-white tracking-tight">Public Package Tracker</h2>
         <p className="text-sm text-slate-400">Track shipment status and delivery progress in real time</p>
@@ -121,3 +126,5 @@ export const PublicTrackingPage: React.FC = () => {
     </div>
   );
 };
+
+export default PublicTrackingPage;

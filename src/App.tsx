@@ -1,47 +1,35 @@
-import React, { useState } from 'react';
+import React, { lazy } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ToastContainer } from './components/ToastContainer';
 import { AuthPage } from './pages/AuthPage';
-import { Sidebar } from './components/Sidebar';
-import { Navbar } from './components/Navbar';
-import { OverviewDashboard } from './pages/OverviewDashboard';
-import { WarehousesPage } from './pages/WarehousesPage';
-import { OrdersPage } from './pages/OrdersPage';
-import { TrackingMapPage } from './pages/TrackingMapPage';
-import { InventoryPage } from './pages/InventoryPage';
-import { AuditLogsPage } from './pages/AuditLogsPage';
-import { PublicTrackingPage } from './pages/PublicTrackingPage';
-import { PackageSimulatorModal } from './components/PackageSimulatorModal';
-import { Order } from './types';
-import api from './services/api';
+import { DashboardLayout } from './layouts/DashboardLayout';
+import { RefreshCw } from 'lucide-react';
 
-const AppContent: React.FC = () => {
+// Code-Splitting Page Components via React.lazy()
+const OverviewDashboard = lazy(() => import('./pages/OverviewDashboard'));
+const WarehousesPage = lazy(() => import('./pages/WarehousesPage'));
+const OrdersPage = lazy(() => import('./pages/OrdersPage'));
+const TrackingMapPage = lazy(() => import('./pages/TrackingMapPage'));
+const InventoryPage = lazy(() => import('./pages/InventoryPage'));
+const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
+const PublicTrackingPage = lazy(() => import('./pages/PublicTrackingPage'));
+
+const AppRoutes: React.FC = () => {
   const { user, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>('overview');
-  const [isSimulatorOpen, setIsSimulatorOpen] = useState<boolean>(false);
-  const [ordersForSimulator, setOrdersForSimulator] = useState<Order[]>([]);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-
-  const handleOpenSimulator = async () => {
-    try {
-      const res: any = await api.get('/protected/orders');
-      if (res.success && res.data) {
-        setOrdersForSimulator(res.data);
-      }
-    } catch (e) {}
-    setIsSimulatorOpen(true);
-  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-cyan-400 font-bold text-sm">
-        Initializing DLM Platform...
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-cyan-400 font-bold text-sm gap-3">
+        <RefreshCw className="w-8 h-8 animate-spin" />
+        <span>Initializing DLM Platform...</span>
       </div>
     );
   }
 
-  // If user is not logged in, display Login & Signup Auth Screen
+  // Unauthenticated user -> Auth Screen
   if (!user) {
     return (
       <>
@@ -51,66 +39,34 @@ const AppContent: React.FC = () => {
     );
   }
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'overview':
-        return <OverviewDashboard onOpenSimulator={handleOpenSimulator} onNavigateTab={setActiveTab} />;
-      case 'warehouses':
-        return <WarehousesPage />;
-      case 'orders':
-        return <OrdersPage onOpenSimulator={handleOpenSimulator} />;
-      case 'tracking':
-        return <TrackingMapPage />;
-      case 'inventory':
-        return <InventoryPage />;
-      case 'audit':
-        return <AuditLogsPage />;
-      case 'public-tracker':
-        return <PublicTrackingPage />;
-      default:
-        return <OverviewDashboard onOpenSimulator={handleOpenSimulator} onNavigateTab={setActiveTab} />;
-    }
-  };
-
+  // Authenticated user -> Routes rendered inside persistent DashboardLayout via <Outlet />
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100 relative">
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        userRole={user?.role}
-        isMobileOpen={isMobileMenuOpen}
-        onCloseMobile={() => setIsMobileMenuOpen(false)}
-      />
-
-      <div className="flex-1 flex flex-col min-w-0">
-        <Navbar
-          isMobileMenuOpen={isMobileMenuOpen}
-          onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
-        />
-        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
-          {renderTabContent()}
-        </main>
-      </div>
-
-      <PackageSimulatorModal
-        isOpen={isSimulatorOpen}
-        onClose={() => setIsSimulatorOpen(false)}
-        orders={ordersForSimulator}
-        onOrderUpdated={() => {}}
-      />
-
-      <ToastContainer />
-    </div>
+    <Routes>
+      <Route path="/" element={<DashboardLayout />}>
+        <Route index element={<OverviewDashboard onOpenSimulator={() => {}} />} />
+        <Route path="orders" element={<OrdersPage />} />
+        <Route path="tracking" element={<TrackingMapPage />} />
+        <Route path="warehouses" element={<WarehousesPage />} />
+        <Route path="inventory" element={<InventoryPage />} />
+        <Route path="audit" element={<AuditLogsPage />} />
+        <Route path="public-tracker" element={<PublicTrackingPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   );
 };
 
 export const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <AppContent />
-      </ToastProvider>
-    </AuthProvider>
+    <HelmetProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </ToastProvider>
+      </AuthProvider>
+    </HelmetProvider>
   );
 };
 

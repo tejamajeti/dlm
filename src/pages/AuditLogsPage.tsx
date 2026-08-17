@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AuditLog } from '../types';
 import api from '../services/api';
 import { ScrollText, Radio, Shield } from 'lucide-react';
+import { SEO } from '../components/SEO';
 
 export const AuditLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -20,6 +21,10 @@ export const AuditLogsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <SEO
+        title="Live Audit Trail - DLM Platform"
+        description="Immutable system activity log recording operational events and state mutations."
+      />
       <div>
         <h2 className="text-2xl font-extrabold text-white tracking-tight">Live System Audit Trail</h2>
         <p className="text-xs text-slate-400 mt-1">Immutable system activity log recording operational events and state mutations</p>
@@ -56,3 +61,5 @@ export const AuditLogsPage: React.FC = () => {
     </div>
   );
 };
+
+export default AuditLogsPage;

@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { getGravatarUrl } from '../utils/gravatar';
 import { UserRole } from '../types';
 import { Radio, Lock, Mail, User, ArrowRight, Sparkles } from 'lucide-react';
+import { SEO } from '../components/SEO';
 
 export const AuthPage: React.FC = () => {
   const { login, register } = useAuth();
@@ -75,6 +76,10 @@ export const AuthPage: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-slate-100 flex items-center justify-start p-4 sm:p-8 lg:p-16 relative overflow-hidden">
+      <SEO
+        title="Authentication & Sign In - DLM Platform"
+        description="Sign in or register for the Distributed Logistics & Telemetry Engine."
+      />
       {/* 3D Spline Cyber Mannequin Background Scene */}
       <div className="fixed inset-0 w-full h-full z-0 pointer-events-auto overflow-hidden">
         <iframe
@@ -276,4 +281,6 @@ export const AuthPage: React.FC = () => {
     </div>
   );
 };
+
+export default AuthPage;
 

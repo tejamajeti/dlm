@@ -4,6 +4,7 @@ import { InventoryItem } from '../types';
 import { useToast } from '../context/ToastContext';
 import { NumericInput } from '../components/NumericInput';
 import { CustomSelect } from '../components/CustomSelect';
+import { SEO } from '../components/SEO';
 import api from '../services/api';
 import {
   Boxes,
@@ -168,6 +169,10 @@ export const InventoryPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <SEO
+        title="Stock & Warehouse Inventory - DLM Platform"
+        description="Real-time stock management with automated reorder alerts & SKU tracking."
+      />
       {/* Top Banner Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -566,3 +571,5 @@ export const InventoryPage: React.FC = () => {
     </div>
   );
 };
+
+export default InventoryPage;

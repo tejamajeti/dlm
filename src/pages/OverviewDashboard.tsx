@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MetricCard } from '../components/MetricCard';
 import { StatusBadge } from '../components/StatusBadge';
 import { UserManagementModal } from '../components/UserManagementModal';
+import { SEO } from '../components/SEO';
 import { DashboardMetrics, Order } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -433,6 +434,10 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onOpenSimu
   // ----------------------------------------------------
   return (
     <div className="space-y-6">
+      <SEO
+        title="Executive Dashboard - DLM Platform"
+        description="Real-time supply chain monitoring, live telemetry, and automated order routing."
+      />
       {/* Top Banner */}
       <div className="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
@@ -559,3 +564,5 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onOpenSimu
     </div>
   );
 };
+
+export default OverviewDashboard;

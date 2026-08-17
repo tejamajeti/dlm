@@ -1,24 +1,30 @@
-import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Order } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { NumericInput } from '../components/NumericInput';
 import { CustomSelect } from '../components/CustomSelect';
+import { Modal } from '../components/Modal';
+import { SEO } from '../components/SEO';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
 import {
   Package,
   Plus,
   Copy,
-  X,
   CheckCircle2,
-  Clock,
-  Truck,
   MapPin,
-  DollarSign,
   Tag,
   Calendar,
-  Edit3,
+  RefreshCw,
+  DollarSign,
+  Send,
+  Search,
+  Filter,
+  X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  RotateCcw,
 } from 'lucide-react';
 
 interface OrdersPageProps {
@@ -50,6 +56,12 @@ export const OrdersPage: React.FC<OrdersPageProps> = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [sortColumn, setSortColumn] = useState<'created_at' | 'total_amount' | 'tracking_number'>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -62,6 +74,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = () => {
   const [destZip, setDestZip] = useState('10110');
   const [amount, setAmount] = useState('1250.00');
   const [currency, setCurrency] = useState('USD');
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState<boolean>(false);
 
   const getCurrencySymbol = (currCode?: string) => {
     const match = CURRENCY_OPTIONS.find((c) => c.value === (currCode || 'USD'));
@@ -74,6 +87,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = () => {
   };
 
   const fetchOrders = async () => {
+    setLoading(true);
     try {
       const res: any = await api.get('/protected/orders');
       if (res.success && res.data) {
@@ -90,6 +104,65 @@ export const OrdersPage: React.FC<OrdersPageProps> = () => {
     fetchOrders();
   }, []);
 
+  // Filtered & Sorted Orders calculation
+  const filteredOrders = useMemo(() => {
+    return orders
+      .filter((order) => {
+        // Search query filter
+        const query = searchQuery.toLowerCase().trim();
+        const pkgCode = order.packages?.[0]?.package_code || 'PKG-DEFAULT';
+        const matchesSearch =
+          !query ||
+          order.tracking_number.toLowerCase().includes(query) ||
+          order.destination_address.toLowerCase().includes(query) ||
+          order.destination_city.toLowerCase().includes(query) ||
+          order.destination_zip.toLowerCase().includes(query) ||
+          pkgCode.toLowerCase().includes(query);
+
+        // Status filter
+        const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
+
+        return matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => {
+        let valA: any = a[sortColumn];
+        let valB: any = b[sortColumn];
+
+        if (sortColumn === 'created_at') {
+          valA = new Date(a.created_at).getTime();
+          valB = new Date(b.created_at).getTime();
+        } else if (sortColumn === 'total_amount') {
+          valA = Number(a.total_amount) || 0;
+          valB = Number(b.total_amount) || 0;
+        } else if (sortColumn === 'tracking_number') {
+          valA = a.tracking_number;
+          valB = b.tracking_number;
+        }
+
+        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+  }, [orders, searchQuery, statusFilter, sortColumn, sortOrder]);
+
+  const handleSortToggle = (col: 'created_at' | 'total_amount' | 'tracking_number') => {
+    if (sortColumn === col) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(col);
+      setSortOrder('desc');
+    }
+  };
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setSortColumn('created_at');
+    setSortOrder('desc');
+  };
+
+  const hasActiveFilters = searchQuery !== '' || statusFilter !== 'ALL';
+
   const handleOpenOrderModal = (order: Order) => {
     setSelectedOrder(order);
     setSelectedStatus(order.status);
@@ -97,6 +170,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = () => {
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmittingOrder(true);
     try {
       const res: any = await api.post('/protected/orders', {
         origin_warehouse_id: 'wh_nyc_01',
@@ -114,6 +188,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = () => {
       }
     } catch (err: any) {
       toast.error(err.message || 'Error creating shipment');
+    } finally {
+      setIsSubmittingOrder(false);
     }
   };
 
@@ -145,17 +221,35 @@ export const OrdersPage: React.FC<OrdersPageProps> = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-extrabold text-white tracking-tight">Shipment Orders Pipeline</h2>
-          <p className="text-xs text-slate-400 mt-1">Manage order lifecycle state transitions and package dispatches</p>
+    <div className="space-y-6 max-w-7xl mx-auto pb-10">
+      <SEO
+        title="Shipment Orders Pipeline - DLM Platform"
+        description="Manage shipment order lifecycle state transitions, package dispatches, and order valuation."
+      />
+      {/* Top Header Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 glass-panel rounded-3xl border border-slate-800/80 shadow-xl">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              <Package className="w-5 h-5" />
+            </div>
+            <h2 className="text-2xl font-extrabold text-white tracking-tight">Shipment Orders Pipeline</h2>
+          </div>
+          <p className="text-xs text-slate-400 pl-0.5">
+            Manage order lifecycle state transitions, package dispatches, and track shipment status
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={fetchOrders}
+            className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition shadow-sm cursor-pointer"
+            title="Refresh Orders"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
+          </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white shadow-lg flex items-center gap-2 glow-cyan"
+            className="px-5 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white shadow-lg flex items-center justify-center gap-2 glow-cyan transition active:scale-95 cursor-pointer w-full sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             Create Shipment
@@ -163,81 +257,241 @@ export const OrdersPage: React.FC<OrdersPageProps> = () => {
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="glass-panel rounded-2xl p-5 border border-slate-800">
+      {/* Table Control & Filter Toolbar */}
+      <div className="glass-panel p-4 rounded-3xl border border-slate-800/80 shadow-lg space-y-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* Real-time Search Input */}
+          <div className="relative flex-1 min-w-[280px]">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by tracking #, destination city, address, package code..."
+              className="w-full bg-slate-900/90 border border-slate-700/80 rounded-2xl pl-10 pr-9 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/40 transition"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Filters Bar */}
+          <div className="flex items-center gap-3">
+            {/* Status Filter Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-400 shrink-0 flex items-center gap-1.5">
+                <Filter className="w-3.5 h-3.5 text-cyan-400" />
+                Filter Status:
+              </span>
+              <CustomSelect
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { value: 'ALL', label: 'All Statuses' },
+                  ...AVAILABLE_STATUSES.map((st) => ({
+                    value: st,
+                    label: st.replace(/_/g, ' '),
+                  })),
+                ]}
+                style={{ minWidth: 160 }}
+              />
+            </div>
+
+            {/* Reset Filters Button */}
+            {hasActiveFilters && (
+              <button
+                onClick={handleResetFilters}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 flex items-center gap-1.5 transition cursor-pointer shrink-0"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Filter Summary & Active Filter Badges */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 pt-2.5 border-t border-slate-800/60 text-xs">
+            <span className="text-slate-400 font-medium">Active filters:</span>
+            {searchQuery && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 text-[11px] font-semibold">
+                Query: "{searchQuery}"
+                <button onClick={() => setSearchQuery('')} className="hover:text-white cursor-pointer ml-0.5">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {statusFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold">
+                Status: {statusFilter.replace(/_/g, ' ')}
+                <button onClick={() => setStatusFilter('ALL')} className="hover:text-white cursor-pointer ml-0.5">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            <span className="ml-auto text-slate-400 font-mono text-[11px]">
+              Showing {filteredOrders.length} of {orders.length} orders
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Orders Table Container */}
+      <div className="glass-panel rounded-3xl border border-slate-800/80 shadow-2xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="text-slate-400 uppercase bg-slate-900/80 border-b border-slate-800">
+          <table className="w-full text-left text-sm border-collapse min-w-[960px]">
+            <thead className="text-slate-400 text-xs uppercase font-bold tracking-wider bg-slate-900/90 border-b border-slate-800 select-none">
               <tr>
-                <th className="px-4 py-3.5 align-middle">Tracking #</th>
-                <th className="px-4 py-3.5 align-middle">Destination Address</th>
-                <th className="px-4 py-3.5 align-middle">Status</th>
-                <th className="px-4 py-3.5 align-middle">Package Code</th>
-                <th className="px-4 py-3.5 align-middle">Total Value</th>
-                <th className="px-4 py-3.5 align-middle">Created Date</th>
-                <th className="px-4 py-3.5 align-middle text-center">Actions</th>
+                <th
+                  onClick={() => handleSortToggle('tracking_number')}
+                  className="px-6 py-4 align-middle cursor-pointer hover:text-white transition whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>Tracking #</span>
+                    {sortColumn === 'tracking_number' ? (
+                      sortOrder === 'asc' ? (
+                        <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
+                      ) : (
+                        <ArrowDown className="w-3.5 h-3.5 text-cyan-400" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-600 opacity-60 hover:opacity-100" />
+                    )}
+                  </div>
+                </th>
+                <th className="px-6 py-4 align-middle whitespace-nowrap">Destination Address</th>
+                <th className="px-6 py-4 align-middle whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <span>Status</span>
+                    {statusFilter !== 'ALL' && (
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                    )}
+                  </div>
+                </th>
+                <th className="px-6 py-4 align-middle whitespace-nowrap">Package Code</th>
+                <th
+                  onClick={() => handleSortToggle('total_amount')}
+                  className="px-6 py-4 align-middle cursor-pointer hover:text-white transition whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>Total Value</span>
+                    {sortColumn === 'total_amount' ? (
+                      sortOrder === 'asc' ? (
+                        <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
+                      ) : (
+                        <ArrowDown className="w-3.5 h-3.5 text-cyan-400" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-600" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSortToggle('created_at')}
+                  className="px-6 py-4 align-middle cursor-pointer hover:text-white transition whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>Created Date</span>
+                    {sortColumn === 'created_at' ? (
+                      sortOrder === 'asc' ? (
+                        <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
+                      ) : (
+                        <ArrowDown className="w-3.5 h-3.5 text-cyan-400" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-600" />
+                    )}
+                  </div>
+                </th>
+                <th className="px-6 py-4 align-middle text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-slate-800/50">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-cyan-400 font-semibold align-middle">
-                    Loading Shipment Orders...
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 align-middle">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <RefreshCw className="w-6 h-6 animate-spin text-cyan-400" />
+                      <span className="text-sm font-semibold text-slate-300">Loading Shipment Orders...</span>
+                    </div>
                   </td>
                 </tr>
-              ) : orders.length === 0 ? (
+              ) : filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500 font-semibold align-middle">
-                    No shipment orders found.
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500 align-middle">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Package className="w-8 h-8 text-slate-600" />
+                      <span className="text-sm font-medium text-slate-400">
+                        {orders.length === 0
+                          ? 'No shipment orders found.'
+                          : 'No shipment orders match your selected filters.'}
+                      </span>
+                      {hasActiveFilters && (
+                        <button
+                          onClick={handleResetFilters}
+                          className="mt-2 px-4 py-2 rounded-xl text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 transition cursor-pointer"
+                        >
+                          Clear Active Filters
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => (
+                filteredOrders.map((order) => (
                   <tr
                     key={order.id}
                     onClick={() => handleOpenOrderModal(order)}
-                    className="hover:bg-slate-800/50 cursor-pointer transition"
+                    className="hover:bg-slate-800/50 cursor-pointer transition-colors duration-150 group"
                   >
-                    <td className="px-4 py-3.5 align-middle">
-                      <div className="flex items-center gap-2 font-mono font-bold text-cyan-300">
-                        <Package className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                    <td className="px-6 py-5 align-middle whitespace-nowrap">
+                      <div className="flex items-center gap-2.5 font-mono font-bold text-cyan-300 group-hover:text-cyan-200 transition">
+                        <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 shrink-0">
+                          <Package className="w-4 h-4 text-cyan-400" />
+                        </div>
                         <span>{order.tracking_number}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 align-middle text-slate-300">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                        <span>
+                    <td className="px-6 py-5 align-middle text-slate-200 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-slate-500 shrink-0" />
+                        <span className="font-medium text-slate-200">
                           {order.destination_address}, {order.destination_city} ({order.destination_zip})
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 align-middle">
+                    <td className="px-6 py-5 align-middle whitespace-nowrap">
                       <StatusBadge status={order.status} />
                     </td>
-                    <td className="px-4 py-3.5 align-middle font-mono text-slate-400">
-                      <div className="flex items-center gap-1.5">
+                    <td className="px-6 py-5 align-middle font-mono text-slate-400 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
                         <Tag className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                         <span>{order.packages && order.packages[0] ? order.packages[0].package_code : 'PKG-DEFAULT'}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 align-middle font-bold text-white">
+                    <td className="px-6 py-5 align-middle font-bold text-white text-base whitespace-nowrap">
                       {getCurrencySymbol(order.currency)}{formatAmount(order.total_amount)}
                     </td>
-                    <td className="px-4 py-3.5 align-middle text-slate-400 font-mono">
-                      <div className="flex items-center gap-1.5">
+                    <td className="px-6 py-5 align-middle text-slate-400 font-mono text-xs whitespace-nowrap">
+                      <div className="flex items-center gap-2">
                         <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                         <span>{new Date(order.created_at).toLocaleDateString()}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 align-middle text-center">
+                    <td className="px-6 py-5 align-middle text-center whitespace-nowrap">
                       <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={(e) => handleCopyTracking(e, order.tracking_number)}
-                          className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition"
+                          className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer"
                           title="Copy Tracking #"
                         >
-                          <Copy className="w-3.5 h-3.5" />
+                          <Copy className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -250,195 +504,221 @@ export const OrdersPage: React.FC<OrdersPageProps> = () => {
       </div>
 
       {/* Modal: View Order Details & Update Status */}
-      {selectedOrder &&
-        createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-            <div className="glass-panel w-full max-w-lg rounded-3xl p-6 border border-slate-700/80 shadow-2xl space-y-5 my-auto max-h-[95vh] overflow-y-auto">
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                    <Package className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-extrabold text-white">Order Status & Lifecycle Control</h3>
-                    <p className="font-mono text-xs text-cyan-400 font-bold">{selectedOrder.tracking_number}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-900 border border-slate-800"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+      <Modal
+        isOpen={!!selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        title="Order Status & Lifecycle Control"
+        subtitle={selectedOrder ? `Tracking #: ${selectedOrder.tracking_number}` : ''}
+        icon={<Package className="w-6 h-6 text-cyan-400" />}
+        maxWidth="xl"
+      >
+        {selectedOrder && (
+          <form onSubmit={handleUpdateStatus} className="space-y-6">
+            {/* Summary Metadata Grid */}
+            <div className="grid grid-cols-2 gap-4 p-5 rounded-2xl bg-slate-950/70 border border-slate-800 text-xs">
+              <div className="space-y-1">
+                <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">
+                  Destination Address
+                </span>
+                <span className="text-slate-200 font-medium text-sm block leading-snug">
+                  {selectedOrder.destination_address}, {selectedOrder.destination_city} ({selectedOrder.destination_zip})
+                </span>
               </div>
-
-              {/* Order Details Summary Grid */}
-              <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-500 font-semibold uppercase block">Destination</span>
-                  <span className="text-slate-200 font-medium">
-                    {selectedOrder.destination_address}, {selectedOrder.destination_city} ({selectedOrder.destination_zip})
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500 font-semibold uppercase block">Order Total</span>
-                  <span className="text-white font-bold text-sm">
-                    {getCurrencySymbol(selectedOrder.currency)}{formatAmount(selectedOrder.total_amount)} ({selectedOrder.currency || 'USD'})
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500 font-semibold uppercase block">Package Code</span>
-                  <span className="font-mono text-cyan-300">
-                    {selectedOrder.packages?.[0]?.package_code || 'PKG-DEFAULT'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500 font-semibold uppercase block">Current Status</span>
-                  <div className="mt-0.5">
-                    <StatusBadge status={selectedOrder.status} />
-                  </div>
+              <div className="space-y-1">
+                <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">
+                  Order Total Valuation
+                </span>
+                <span className="text-white font-extrabold text-base block">
+                  {getCurrencySymbol(selectedOrder.currency)}{formatAmount(selectedOrder.total_amount)}{' '}
+                  <span className="text-xs text-slate-400 font-normal">({selectedOrder.currency || 'USD'})</span>
+                </span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">
+                  Package Code
+                </span>
+                <span className="font-mono text-cyan-300 text-sm font-semibold block">
+                  {selectedOrder.packages?.[0]?.package_code || 'PKG-DEFAULT'}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">
+                  Current Lifecycle Status
+                </span>
+                <div className="mt-1">
+                  <StatusBadge status={selectedOrder.status} />
                 </div>
               </div>
-
-              {/* Form to Update Status */}
-              <form onSubmit={handleUpdateStatus} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2">Select New Order Status</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {AVAILABLE_STATUSES.map((statusOption) => (
-                      <button
-                        key={statusOption}
-                        type="button"
-                        onClick={() => setSelectedStatus(statusOption)}
-                        className={`p-2.5 rounded-xl border text-xs font-bold transition flex items-center justify-between ${
-                          selectedStatus === statusOption
-                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500 shadow-md ring-1 ring-cyan-500/50'
-                            : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-800'
-                        }`}
-                      >
-                        <span>{statusOption.replace(/_/g, ' ')}</span>
-                        {selectedStatus === statusOption && <CheckCircle2 className="w-4 h-4 text-cyan-400" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedOrder(null)}
-                    className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white border border-slate-800 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isUpdatingStatus || selectedStatus === selectedOrder.status}
-                    className="px-5 py-2.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 disabled:opacity-50 text-white shadow-lg flex items-center gap-1.5 transition active:scale-95"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    {isUpdatingStatus ? 'Updating Status...' : 'Save & Update Status'}
-                  </button>
-                </div>
-              </form>
             </div>
-          </div>,
-          document.body
+
+            {/* Select Status Options */}
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                Select New Order Lifecycle State
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {AVAILABLE_STATUSES.map((statusOption) => {
+                  const isSelected = selectedStatus === statusOption;
+                  return (
+                    <button
+                      key={statusOption}
+                      type="button"
+                      onClick={() => setSelectedStatus(statusOption)}
+                      className={`p-3 rounded-2xl border text-xs font-bold transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                        isSelected
+                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/80 shadow-lg ring-2 ring-cyan-500/30'
+                          : 'bg-slate-900/80 hover:bg-slate-800/80 text-slate-400 hover:text-slate-200 border-slate-800'
+                      }`}
+                    >
+                      <span className="truncate">{statusOption.replace(/_/g, ' ')}</span>
+                      {isSelected && <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="flex items-center justify-end gap-3 pt-5 border-t border-slate-800/80">
+              <button
+                type="button"
+                onClick={() => setSelectedOrder(null)}
+                className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isUpdatingStatus || selectedStatus === selectedOrder.status}
+                className="px-6 py-2.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 disabled:opacity-50 text-white shadow-lg flex items-center gap-2 transition active:scale-95 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                {isUpdatingStatus ? 'Updating Status...' : 'Save & Update Status'}
+              </button>
+            </div>
+          </form>
         )}
+      </Modal>
 
       {/* Modal to Create Order */}
-      {showCreateModal &&
-        createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-            <div className="glass-panel w-full max-w-md rounded-3xl p-6 border border-slate-700/80 shadow-2xl space-y-4 my-auto max-h-[95vh] overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <h3 className="text-base font-extrabold text-white">Create & Dispatch New Shipment</h3>
-                <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <form onSubmit={handleCreateOrder} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Destination Address</label>
-                  <input
-                    type="text"
-                    value={destAddress}
-                    onChange={(e) => setDestAddress(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">City</label>
-                    <input
-                      type="text"
-                      value={destCity}
-                      onChange={(e) => setDestCity(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Zip Code</label>
-                    <input
-                      type="text"
-                      value={destZip}
-                      onChange={(e) => setDestZip(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Multi-Currency & Order Value Section */}
-                <div className="grid grid-cols-3 gap-3 items-end">
-                  <div className="col-span-1">
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Currency</label>
-                    <CustomSelect
-                      value={currency}
-                      onChange={setCurrency}
-                      options={CURRENCY_OPTIONS.map((c) => ({
-                        value: c.value,
-                        label: `${c.value} (${c.symbol})`,
-                      }))}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <NumericInput
-                      label={`Order Amount (${currency})`}
-                      prefix={getCurrencySymbol(currency)}
-                      value={amount}
-                      onChange={setAmount}
-                      min={0}
-                      step={50}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-4 flex justify-between gap-3 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateModal(false)}
-                    className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white border border-slate-800 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white shadow-lg transition active:scale-95"
-                  >
-                    Dispatch Order
-                  </button>
-                </div>
-              </form>
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create & Dispatch New Shipment"
+        subtitle="Fill in destination address details and total order amount valuation."
+        icon={<Send className="w-6 h-6 text-cyan-400" />}
+        maxWidth="xl"
+      >
+        <form onSubmit={handleCreateOrder} className="space-y-5">
+          {/* Section: Destination Address */}
+          <div className="space-y-4 p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80">
+            <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Destination Information
+            </h4>
+            
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Street Address
+              </label>
+              <input
+                type="text"
+                value={destAddress}
+                onChange={(e) => setDestAddress(e.target.value)}
+                placeholder="e.g. 500 5th Ave"
+                className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition"
+                required
+              />
             </div>
-          </div>,
-          document.body
-        )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  City
+                </label>
+                <input
+                  type="text"
+                  value={destCity}
+                  onChange={(e) => setDestCity(e.target.value)}
+                  placeholder="e.g. New York"
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Zip Code
+                </label>
+                <input
+                  type="text"
+                  value={destZip}
+                  onChange={(e) => setDestZip(e.target.value)}
+                  placeholder="e.g. 10110"
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section: Financials & Currency */}
+          <div className="space-y-4 p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80">
+            <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              Financial & Valuation Details
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+              <div className="sm:col-span-1 space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Currency
+                </label>
+                <CustomSelect
+                  value={currency}
+                  onChange={setCurrency}
+                  options={CURRENCY_OPTIONS.map((c) => ({
+                    value: c.value,
+                    label: `${c.value} (${c.symbol})`,
+                  }))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <NumericInput
+                  label={`Order Amount (${currency})`}
+                  prefix={getCurrencySymbol(currency)}
+                  value={amount}
+                  onChange={setAmount}
+                  min={0}
+                  step={50}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(false)}
+              className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmittingOrder}
+              className="px-6 py-2.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 disabled:opacity-50 text-white shadow-lg transition active:scale-95 flex items-center gap-2 cursor-pointer"
+            >
+              <Send className="w-4 h-4" />
+              {isSubmittingOrder ? 'Dispatching...' : 'Dispatch Order'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
+
+export default OrdersPage;

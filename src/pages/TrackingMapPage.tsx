@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { NumericInput } from '../components/NumericInput';
+import { SEO } from '../components/SEO';
 import { MapPin, Navigation, Send, Truck, Zap, Activity, Locate, Compass, RefreshCw } from 'lucide-react';
 
 export const TrackingMapPage: React.FC = () => {
@@ -166,6 +167,10 @@ export const TrackingMapPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <SEO
+        title="Fleet & Driver GPS Live Tracking - DLM Platform"
+        description="Real-time GPS coordinate ingestion streaming from active delivery vehicles & mobile sensors."
+      />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Driver Fleet Telemetry & Live Map</h2>
@@ -329,4 +334,6 @@ export const TrackingMapPage: React.FC = () => {
     </div>
   );
 };
+
+export default TrackingMapPage;
 

@@ -5,6 +5,7 @@ import api from '../services/api';
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  refreshToken: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (fullName: string, email: string, password: string, role: UserRole) => Promise<void>;
   logout: () => void;
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('dlm_token'));
+  const [refreshToken, setRefreshToken] = useState<string | null>(localStorage.getItem('dlm_refresh_token'));
   const [isImpersonating, setIsImpersonating] = useState<boolean>(
     Boolean(localStorage.getItem('dlm_admin_backup_token'))
   );
@@ -26,21 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     async function initAuth() {
-      // Check if URL has ?token=... query parameter from copied access link
-      const urlParams = new URLSearchParams(window.location.search);
-      const tokenFromUrl = urlParams.get('token');
-
-      let activeToken = token;
-
-      if (tokenFromUrl) {
-        activeToken = tokenFromUrl;
-        localStorage.setItem('dlm_token', tokenFromUrl);
-        setToken(tokenFromUrl);
-        // Clean ?token= query parameter from browser address bar
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-
-      if (activeToken) {
+      if (token) {
         try {
           const res: any = await api.get('/protected/users/me');
           if (res.success && res.data) {
@@ -65,6 +53,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(res.data.token);
       setUser(res.data.user);
       localStorage.setItem('dlm_token', res.data.token);
+      if (res.data.refreshToken) {
+        setRefreshToken(res.data.refreshToken);
+        localStorage.setItem('dlm_refresh_token', res.data.refreshToken);
+      }
       localStorage.removeItem('dlm_admin_backup_token');
       setIsImpersonating(false);
     } else {
@@ -83,6 +75,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(res.data.token);
       setUser(res.data.user);
       localStorage.setItem('dlm_token', res.data.token);
+      if (res.data.refreshToken) {
+        setRefreshToken(res.data.refreshToken);
+        localStorage.setItem('dlm_refresh_token', res.data.refreshToken);
+      }
       localStorage.removeItem('dlm_admin_backup_token');
       setIsImpersonating(false);
     } else {
@@ -101,6 +97,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(res.data.token);
       setUser(res.data.user);
       localStorage.setItem('dlm_token', res.data.token);
+      if (res.data.refreshToken) {
+        setRefreshToken(res.data.refreshToken);
+        localStorage.setItem('dlm_refresh_token', res.data.refreshToken);
+      }
       setIsImpersonating(true);
     } else {
       throw new Error(res.message || 'Failed to access target user account');
@@ -124,10 +124,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    const curRefreshToken = localStorage.getItem('dlm_refresh_token');
+    if (curRefreshToken) {
+      api.post('/public/auth/logout', { refreshToken: curRefreshToken }).catch(() => {});
+    }
     setUser(null);
     setToken(null);
+    setRefreshToken(null);
     setIsImpersonating(false);
     localStorage.removeItem('dlm_token');
+    localStorage.removeItem('dlm_refresh_token');
     localStorage.removeItem('dlm_admin_backup_token');
   };
 
@@ -136,6 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         token,
+        refreshToken,
         login,
         register,
         logout,
