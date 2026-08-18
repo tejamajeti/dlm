@@ -13,7 +13,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:5000', // Backend Express API port target
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:5000', // Backend Express API target
         changeOrigin: true,
         secure: false,
       },

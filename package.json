@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "live": "node scripts/live.js",
+    "live": "git checkout main && git pull origin main && git checkout production && git reset --hard main && git push origin production --force-with-lease && git checkout main",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },

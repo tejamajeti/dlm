@@ -68,7 +68,24 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           build-args: |
-            VITE_API_URL=${{ secrets.VITE_API_URL || 'http://localhost:5000/api/v1' }}
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      # 9. Prune old / untagged Docker image versions from GHCR
+      - name: Prune Old GHCR Image Versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: 'dlm-frontend'
+          package-type: 'container'
+          min-versions-to-keep: 5
+          delete-only-untagged: true
+
+      # 10. Optional: Trigger Railway Deployment Webhook (if RAILWAY_DEPLOY_HOOK is set)
+      - name: Trigger Railway Deploy Webhook
+        if: ${{ secrets.RAILWAY_DEPLOY_HOOK != '' }}
+        run: |
+          curl -s -X POST "${{ secrets.RAILWAY_DEPLOY_HOOK }}"
+
+

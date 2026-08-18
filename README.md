@@ -75,7 +75,7 @@ services:
     ports:
       - "5001:5001"
     environment:
-      - VITE_API_URL=http://localhost:5000/api/v1
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:5000/api/v1}
 ```
 
 ---
