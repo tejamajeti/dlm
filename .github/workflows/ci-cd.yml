@@ -73,19 +73,14 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      # 9. Prune old / untagged Docker image versions from GHCR
+      # 9. Prune old / untagged Docker image versions from GHCR (Safe step)
       - name: Prune Old GHCR Image Versions
         uses: actions/delete-package-versions@v5
         with:
+          token: ${{ secrets.GHCR_TOKEN }}
           package-name: 'dlm-frontend'
           package-type: 'container'
           min-versions-to-keep: 5
           delete-only-untagged: true
-
-      # 10. Optional: Trigger Railway Deployment Webhook (if RAILWAY_DEPLOY_HOOK is set)
-      - name: Trigger Railway Deploy Webhook
-        if: ${{ secrets.RAILWAY_DEPLOY_HOOK != '' }}
-        run: |
-          curl -s -X POST "${{ secrets.RAILWAY_DEPLOY_HOOK }}"
 
 
