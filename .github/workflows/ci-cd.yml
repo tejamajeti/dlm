@@ -42,6 +42,8 @@ jobs:
       # 4. CI Validation & Type Check Build
       - name: Compile & Build Frontend
         run: npm run build
+        env: 
+          VITE_API_URL=${{ secrets.VITE_API_URL }}
 
       # 5. Set up QEMU (Commented out for fast single-arch Railway builds; uncomment if deploying to ARM64 VPS)
       # - name: Set up QEMU
@@ -82,6 +84,6 @@ jobs:
           package-name: 'dlm-frontend'
           package-type: 'container'
           min-versions-to-keep: 5
-          delete-only-untagged-versions: 'true'
+          delete-only-untagged-versions: 'false'
 
 
