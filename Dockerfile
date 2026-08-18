@@ -8,7 +8,7 @@ COPY . .
 
 # Build-time environment variable for Vite static bundle
 ARG VITE_API_URL
-ENV VITE_API_URL=${VITE_API_URL:-http://localhost:5000/api/v1}
+ENV VITE_API_URL=${VITE_API_URL}
 
 RUN npm run build
 
