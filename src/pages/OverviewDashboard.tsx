@@ -6,6 +6,7 @@ import { SEO } from '../components/SEO';
 import { DashboardMetrics, Order } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useSocket } from '../context/SocketContext';
 import api from '../services/api';
 import {
   Package,
@@ -24,6 +25,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Users,
+  Wifi,
 } from 'lucide-react';
 
 interface OverviewDashboardProps {
@@ -34,6 +36,7 @@ interface OverviewDashboardProps {
 export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onOpenSimulator, onNavigateTab }) => {
   const { user } = useAuth();
   const toast = useToast();
+  const { socket, isConnected } = useSocket();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [customerTrackingInput, setCustomerTrackingInput] = useState('');
@@ -54,16 +57,98 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onOpenSimu
 
   useEffect(() => {
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 6000);
-    return () => clearInterval(interval);
   }, []);
+
+  // Event-Driven WebSocket Payload Handlers (State updated directly in-memory without HTTP re-fetching)
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleOrderCreated = (data: any) => {
+      setMetrics((prev) => {
+        if (!prev) return prev;
+        const newOrder: Order = data.order || {
+          id: data.orderId || `ord_${Date.now()}`,
+          tracking_number: data.trackingNumber || 'DLM-SHIPMENT',
+          status: 'CREATED',
+          destination_address: 'Central Sorting Hub',
+          destination_city: 'Standard Route',
+          destination_zip: '00000',
+          total_amount: Number(data.totalAmount || 0),
+          created_at: new Date().toISOString(),
+        };
+        const exists = prev.activeOrders.some((o) => o.id === newOrder.id);
+        const updatedActiveOrders = exists ? prev.activeOrders : [newOrder, ...prev.activeOrders];
+        return {
+          ...prev,
+          overview: {
+            ...prev.overview,
+            totalOrders: prev.overview.totalOrders + (exists ? 0 : 1),
+            activeShipments: prev.overview.activeShipments + (exists ? 0 : 1),
+            totalRevenue: prev.overview.totalRevenue + (exists ? 0 : (newOrder.total_amount || 0)),
+          },
+          activeOrders: updatedActiveOrders,
+        };
+      });
+    };
+
+    const handleOrderStatusUpdated = (data: any) => {
+      setMetrics((prev) => {
+        if (!prev) return prev;
+        let oldStatus = '';
+        let matched = false;
+
+        const updatedOrders = prev.activeOrders.map((o) => {
+          if (o.id === data.orderId || (data.trackingNumber && o.tracking_number === data.trackingNumber)) {
+            oldStatus = o.status;
+            matched = true;
+            return { ...o, status: data.status, ...(data.order || {}) };
+          }
+          return o;
+        });
+
+        let activeDiff = 0;
+        let deliveredDiff = 0;
+        if (matched && data.status === 'DELIVERED' && oldStatus !== 'DELIVERED') {
+          activeDiff = -1;
+          deliveredDiff = 1;
+        }
+
+        return {
+          ...prev,
+          overview: {
+            ...prev.overview,
+            activeShipments: Math.max(0, prev.overview.activeShipments + activeDiff),
+            deliveredShipments: prev.overview.deliveredShipments + deliveredDiff,
+          },
+          activeOrders: updatedOrders,
+        };
+      });
+    };
+
+    const handleNewAuditLog = (newLog: any) => {
+      setMetrics((prev) => {
+        if (!prev) return prev;
+        const updatedLogs = [newLog, ...prev.recentAuditLogs.filter((l) => l.id !== newLog.id)].slice(0, 15);
+        return { ...prev, recentAuditLogs: updatedLogs };
+      });
+    };
+
+    socket.on('order:created', handleOrderCreated);
+    socket.on('order:status_updated', handleOrderStatusUpdated);
+    socket.on('audit:new_log', handleNewAuditLog);
+
+    return () => {
+      socket.off('order:created', handleOrderCreated);
+      socket.off('order:status_updated', handleOrderStatusUpdated);
+      socket.off('audit:new_log', handleNewAuditLog);
+    };
+  }, [socket]);
 
   const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       const res: any = await api.patch(`/protected/orders/${orderId}/status`, { status: newStatus });
       if (res.success) {
         toast.success(`Shipment status updated to ${newStatus}`);
-        fetchMetrics();
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to update order status');
@@ -445,6 +530,10 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onOpenSimu
           <p className="text-xs text-slate-400 mt-1">Real-time supply chain monitoring & automated order routing</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[11px] font-bold uppercase px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 flex items-center gap-2 text-slate-300">
+            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-ping'}`} />
+            {isConnected ? 'WSS Realtime Active' : 'Connecting WSS...'}
+          </span>
           {user?.role === 'Admin' && (
             <button
               onClick={() => setIsUserModalOpen(true)}

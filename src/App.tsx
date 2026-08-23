@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { SocketProvider } from './context/SocketContext';
 import { ToastContainer } from './components/ToastContainer';
 import { AuthPage } from './pages/AuthPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
@@ -61,9 +62,11 @@ export const App: React.FC = () => {
     <HelmetProvider>
       <AuthProvider>
         <ToastProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
+          <SocketProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </SocketProvider>
         </ToastProvider>
       </AuthProvider>
     </HelmetProvider>

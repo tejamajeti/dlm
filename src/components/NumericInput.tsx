@@ -23,7 +23,7 @@ export const NumericInput: React.FC<NumericInputProps> = ({
   label,
   value,
   onChange,
-  min = 0,
+  min,
   max,
   step = 1,
   placeholder,
@@ -33,14 +33,19 @@ export const NumericInput: React.FC<NumericInputProps> = ({
   disabled = false,
   required = false,
   className = '',
-  allowNegative = false,
+  allowNegative,
   showSteppers = true,
 }) => {
-  const numValue = typeof value === 'number' ? value : parseFloat(value) || 0;
+  const isNegativeAllowed = allowNegative !== undefined ? allowNegative : (min === undefined || min < 0);
+
+  const strVal = value === null || value === undefined ? '' : String(value);
+  const numValue = parseFloat(strVal) || 0;
 
   const handleDecrement = () => {
     if (disabled) return;
-    const nextVal = Math.max(allowNegative ? -Infinity : min, numValue - step);
+    const nextVal = isNegativeAllowed
+      ? (min !== undefined ? Math.max(min, numValue - step) : numValue - step)
+      : Math.max(min !== undefined ? min : 0, numValue - step);
     const formatted = Number.isInteger(step) ? String(nextVal) : nextVal.toFixed(4).replace(/\.?0+$/, '');
     onChange(formatted);
   };
@@ -53,10 +58,7 @@ export const NumericInput: React.FC<NumericInputProps> = ({
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value;
-    if (!allowNegative && parseFloat(val) < 0) {
-      val = String(min);
-    }
+    const val = e.target.value;
     onChange(val);
   };
 
@@ -70,12 +72,10 @@ export const NumericInput: React.FC<NumericInputProps> = ({
         )}
 
         <input
-          type="number"
-          value={value}
+          type="text"
+          inputMode="numeric"
+          value={strVal}
           onChange={handleChange}
-          min={allowNegative ? undefined : min}
-          max={max}
-          step={step}
           placeholder={placeholder}
           disabled={disabled}
           required={required}
@@ -101,7 +101,7 @@ export const NumericInput: React.FC<NumericInputProps> = ({
             <button
               type="button"
               onClick={handleDecrement}
-              className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition active:scale-95"
+              className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition active:scale-95 cursor-pointer"
               title="Decrease"
             >
               <Minus className="w-3 h-3" />
@@ -109,7 +109,7 @@ export const NumericInput: React.FC<NumericInputProps> = ({
             <button
               type="button"
               onClick={handleIncrement}
-              className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition active:scale-95"
+              className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition active:scale-95 cursor-pointer"
               title="Increase"
             >
               <Plus className="w-3 h-3" />
@@ -120,3 +120,4 @@ export const NumericInput: React.FC<NumericInputProps> = ({
     </div>
   );
 };
+

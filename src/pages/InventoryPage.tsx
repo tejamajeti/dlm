@@ -517,6 +517,7 @@ export const InventoryPage: React.FC = () => {
                       label="Stock Adjustment (+/-)"
                       value={adjustmentDelta}
                       onChange={setAdjustmentDelta}
+                      allowNegative={true}
                       step={1}
                       suffix="units"
                       required
@@ -526,7 +527,7 @@ export const InventoryPage: React.FC = () => {
                       value={targetReorderLevel}
                       onChange={setTargetReorderLevel}
                       min={1}
-                      step={5}
+                      step={1}
                       suffix="units"
                       required
                     />
