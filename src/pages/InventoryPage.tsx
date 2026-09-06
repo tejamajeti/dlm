@@ -170,7 +170,7 @@ export const InventoryPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <SEO
-        title="Stock & Warehouse Inventory - DLM Platform"
+        title="Stock & Warehouse Inventory - Synapship"
         description="Real-time stock management with automated reorder alerts & SKU tracking."
       />
       {/* Top Banner Header */}

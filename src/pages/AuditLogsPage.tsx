@@ -22,7 +22,7 @@ export const AuditLogsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <SEO
-        title="Live Audit Trail - DLM Platform"
+        title="Live Audit Trail - Synapship"
         description="Immutable system activity log recording operational events and state mutations."
       />
       <div>

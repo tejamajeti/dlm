@@ -68,7 +68,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onOpenSimu
         if (!prev) return prev;
         const newOrder: Order = data.order || {
           id: data.orderId || `ord_${Date.now()}`,
-          tracking_number: data.trackingNumber || 'DLM-SHIPMENT',
+          tracking_number: data.trackingNumber || 'SYN-SHIPMENT',
           status: 'CREATED',
           destination_address: 'Central Sorting Hub',
           destination_city: 'Standard Route',
@@ -160,7 +160,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onOpenSimu
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex items-center gap-3 text-cyan-400 font-semibold">
           <Zap className="w-6 h-6 animate-bounce" />
-          <span>Connecting to DLM Backend & Operations Engine...</span>
+          <span>Connecting to Synapship Operations Engine...</span>
         </div>
       </div>
     );
@@ -470,7 +470,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onOpenSimu
               type="text"
               value={customerTrackingInput}
               onChange={(e) => setCustomerTrackingInput(e.target.value)}
-              placeholder="Enter your tracking number (e.g. DLM-892401-US)"
+              placeholder="Enter your tracking number (e.g. SYN-892401-US)"
               className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
             />
             <button
@@ -520,7 +520,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ onOpenSimu
   return (
     <div className="space-y-6">
       <SEO
-        title="Executive Dashboard - DLM Platform"
+        title="Executive Dashboard - Synapship"
         description="Real-time supply chain monitoring, live telemetry, and automated order routing."
       />
       {/* Top Banner */}

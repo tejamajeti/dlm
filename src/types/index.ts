@@ -7,6 +7,8 @@ export interface User {
   role: UserRole;
   phone?: string;
   avatar?: string;
+  google_id?: string;
+  auth_provider?: 'local' | 'google';
 }
 
 export interface Warehouse {

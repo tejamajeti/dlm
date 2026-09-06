@@ -16,7 +16,9 @@ export const Navbar: React.FC<NavbarProps> = ({ isMobileMenuOpen, onToggleMobile
 
   useEffect(() => {
     let isMounted = true;
-    if (user?.email) {
+    if (user?.avatar) {
+      setAvatarUrl(user.avatar);
+    } else if (user?.email) {
       getGravatarUrl(user.email, 150, 'identicon').then((url) => {
         if (isMounted) setAvatarUrl(url);
       });

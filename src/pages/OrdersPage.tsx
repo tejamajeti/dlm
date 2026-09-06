@@ -223,7 +223,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
       <SEO
-        title="Shipment Orders Pipeline - DLM Platform"
+        title="Shipment Orders Pipeline - Synapship"
         description="Manage shipment order lifecycle state transitions, package dispatches, and order valuation."
       />
       {/* Top Header Banner */}

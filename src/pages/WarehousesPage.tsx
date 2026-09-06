@@ -184,7 +184,7 @@ export const WarehousesPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <SEO
-        title="Fulfillment Hubs & Facilities - DLM Platform"
+        title="Fulfillment Hubs & Facilities - Synapship"
         description="Regional distribution centers, warehouse capacity, occupancy tracking & geographic placement."
       />
       {/* Top Banner Header */}

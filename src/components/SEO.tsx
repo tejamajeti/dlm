@@ -11,14 +11,14 @@ interface SEOProps {
 }
 
 export const SEO: React.FC<SEOProps> = ({
-  title = 'DLM Platform - Distributed Logistics & Warehouse Engine',
+  title = 'Synapship - Distributed Logistics & Telemetry Platform',
   description = 'Real-time telemetry, warehouse inventory management, and shipment tracking engine.',
-  keywords = 'logistics, warehouse management, supply chain, tracking, IoT, telemetry, DLM',
+  keywords = 'logistics, warehouse management, supply chain, tracking, IoT, telemetry, Synapship',
   ogTitle,
   ogDescription,
   canonicalUrl,
 }) => {
-  const fullTitle = title.includes('DLM') ? title : `${title} | DLM Platform`;
+  const fullTitle = title.includes('Synapship') ? title : `${title} | Synapship`;
 
   return (
     <Helmet>

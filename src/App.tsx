@@ -25,7 +25,7 @@ const AppRoutes: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-cyan-400 font-bold text-sm gap-3">
         <RefreshCw className="w-8 h-8 animate-spin" />
-        <span>Initializing DLM Platform...</span>
+        <span>Initializing Synapship Platform...</span>
       </div>
     );
   }

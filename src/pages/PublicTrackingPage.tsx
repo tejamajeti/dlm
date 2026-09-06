@@ -38,7 +38,7 @@ export const PublicTrackingPage: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <SEO
-        title="Public Package Tracker - DLM Platform"
+        title="Public Package Tracker - Synapship"
         description="Track shipment status and delivery progress in real time."
       />
       <div className="text-center space-y-2">

@@ -7,6 +7,12 @@ interface AuthContextType {
   token: string | null;
   refreshToken: string | null;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (input: {
+    credential?: string;
+    accessToken?: string;
+    token?: string;
+    role?: UserRole;
+  }) => Promise<{ isNewUser?: boolean; profile?: any } | void>;
   register: (fullName: string, email: string, password: string, role: UserRole) => Promise<void>;
   logout: () => void;
   loading: boolean;
@@ -61,6 +67,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsImpersonating(false);
     } else {
       throw new Error(res.message || 'Authentication failed');
+    }
+  };
+
+  const loginWithGoogle = async (input: {
+    credential?: string;
+    accessToken?: string;
+    token?: string;
+    role?: UserRole;
+  }) => {
+    const res: any = await api.post('/public/auth/google', input);
+    if (res.isNewUser) {
+      return { isNewUser: true, profile: res.data?.profile };
+    }
+    if (res.success && res.data) {
+      setToken(res.data.token);
+      setUser(res.data.user);
+      localStorage.setItem('dlm_token', res.data.token);
+      if (res.data.refreshToken) {
+        setRefreshToken(res.data.refreshToken);
+        localStorage.setItem('dlm_refresh_token', res.data.refreshToken);
+      }
+      localStorage.removeItem('dlm_admin_backup_token');
+      setIsImpersonating(false);
+    } else {
+      throw new Error(res.message || 'Google authentication failed');
     }
   };
 
@@ -144,6 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         refreshToken,
         login,
+        loginWithGoogle,
         register,
         logout,
         loading,

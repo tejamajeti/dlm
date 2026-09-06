@@ -168,7 +168,7 @@ export const TrackingMapPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <SEO
-        title="Fleet & Driver GPS Live Tracking - DLM Platform"
+        title="Fleet & Driver GPS Live Tracking - Synapship"
         description="Real-time GPS coordinate ingestion streaming from active delivery vehicles & mobile sensors."
       />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

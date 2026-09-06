@@ -68,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div>
               <h1 className="font-extrabold text-lg text-white tracking-wide flex items-center gap-1.5">
-                DLM <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">v1.0</span>
+                Synapship <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">v1.0</span>
               </h1>
               <p className="text-[11px] font-medium text-slate-400">Distributed Logistics</p>
             </div>
