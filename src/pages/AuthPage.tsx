@@ -65,14 +65,62 @@ export const AuthPage: React.FC = () => {
     }
   };
 
+  const handleGoogleCredentialResponse = async (credential: string) => {
+    setGoogleLoading(true);
+    try {
+      const res = await loginWithGoogle({ credential });
+      if (res && res.isNewUser) {
+        setPendingGoogleAuth({
+          credential,
+          profile: res.profile,
+        });
+      } else {
+        toast.success('Successfully authenticated with Google!');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Google authentication failed.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   React.useEffect(() => {
-    if (typeof window !== 'undefined' && !document.getElementById('google-gsi-client')) {
-      const script = document.createElement('script');
-      script.id = 'google-gsi-client';
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+
+    const initOneTap = () => {
+      const google = (window as any).google;
+      if (!google?.accounts?.id) return;
+
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response: any) => {
+          if (response?.credential) {
+            await handleGoogleCredentialResponse(response.credential);
+          }
+        },
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+
+      // Auto-trigger Google One Tap prompt on page load
+      google.accounts.id.prompt();
+    };
+
+    if (typeof window !== 'undefined') {
+      if (!document.getElementById('google-gsi-client')) {
+        const script = document.createElement('script');
+        script.id = 'google-gsi-client';
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          initOneTap();
+        };
+        document.head.appendChild(script);
+      } else {
+        initOneTap();
+      }
     }
   }, []);
 
@@ -95,21 +143,7 @@ export const AuthPage: React.FC = () => {
         client_id: clientId,
         callback: async (response: any) => {
           if (response?.credential) {
-            try {
-              const res = await loginWithGoogle({ credential: response.credential });
-              if (res && res.isNewUser) {
-                setPendingGoogleAuth({
-                  credential: response.credential,
-                  profile: res.profile,
-                });
-              } else {
-                toast.success('Successfully authenticated with Google!');
-              }
-            } catch (err: any) {
-              toast.error(err.message || 'Google authentication failed.');
-            } finally {
-              setGoogleLoading(false);
-            }
+            await handleGoogleCredentialResponse(response.credential);
           } else {
             setGoogleLoading(false);
           }
