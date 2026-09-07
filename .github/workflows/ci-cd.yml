@@ -44,6 +44,7 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
 
       # 5. Set up QEMU (Commented out for fast single-arch Railway builds; uncomment if deploying to ARM64 VPS)
       # - name: Set up QEMU
