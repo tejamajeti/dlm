@@ -258,7 +258,7 @@ export const AuthPage: React.FC = () => {
             <Radio className="w-5 h-5 text-cyan-400 animate-pulse" />
             <span className="text-xs font-bold text-slate-200 tracking-wider">SYNAPSHIP OPERATIONAL CONTROL</span>
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Logistics Portal</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Logistics Portal.</h1>
           <p className="text-xs text-slate-300">Distributed Operations & Telemetry Platform</p>
         </div>
 
